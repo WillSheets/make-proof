@@ -8,6 +8,7 @@
 //@include "src/utils.jsx"
 //@include "src/ui.jsx"
 //@include "src/core.jsx"
+//@include "src/dimensioning.jsx"
 //@include "src/main.jsx"
 
 /**

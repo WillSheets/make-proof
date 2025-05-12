@@ -9,10 +9,11 @@
 /**
  * Creates a new CMYK Illustrator document at the specified dimensions.
  * @param {number} widthInches - Width in inches
- * @param {number} heightInches - Height in inches 
+ * @param {number} heightInches - Height in inches
+ * @param {string} title - The desired title for the new document
  * @returns {Document} The created document
  */
-function createDocument(widthInches, heightInches) {
+function createDocument(widthInches, heightInches, title) {
     // Ensure temporary dimensions are at least 1 inch to avoid errors
     var tempWidth = Math.max(widthInches, 1);
     var tempHeight = Math.max(heightInches, 1);
@@ -23,6 +24,9 @@ function createDocument(widthInches, heightInches) {
     docPreset.width = tempWidth;
     docPreset.height = tempHeight;
     docPreset.colorMode = DocumentColorSpace.CMYK;
+    if (title) {
+        docPreset.title = title;
+    }
 
     // Create the document
     var doc = app.documents.addDocument(DocumentColorSpace.CMYK, docPreset);
@@ -101,8 +105,9 @@ function applyStrokeToShape(shape, strokeColor, strokeWidth, name) {
  * @param {Document} doc - The document
  * @param {string} labelType - Type of label
  * @param {SpotColor} dielineColorSpot - Color for dieline
+ * @param {SpotColor} bleedLineSpotColor - Spot color for the bleed line
  */
-function handleMultiplePaths(doc, labelType, dielineColorSpot) {
+function handleMultiplePaths(doc, labelType, dielineColorSpot, bleedLineSpotColor) {
     var smallestPath = doc.selection[0];
     var smallestArea = getArea(smallestPath);
     var originalDielinePath = null;
@@ -121,7 +126,7 @@ function handleMultiplePaths(doc, labelType, dielineColorSpot) {
 
     if (labelType === "Die Cut") {
         var cutToPathSpotColor = createSpotColor(doc, "SEI-CutToPart", [62.66, 0, 100, 0]);
-        handleDieCutPaths(doc, originalDielinePath, dielineColorSpot, cutToPathSpotColor);
+        handleDieCutPaths(doc, originalDielinePath, dielineColorSpot, cutToPathSpotColor, bleedLineSpotColor);
     }
 
     // Safezone
@@ -138,8 +143,9 @@ function handleMultiplePaths(doc, labelType, dielineColorSpot) {
  * @param {PathItem} originalDielinePath - Original dieline path
  * @param {SpotColor} dielineColorSpot - Dieline color
  * @param {SpotColor} cutToPathSpotColor - Cut-to-part color
+ * @param {SpotColor} bleedLineSpotColor - Spot color for the bleed line
  */
-function handleDieCutPaths(doc, originalDielinePath, dielineColorSpot, cutToPathSpotColor) {
+function handleDieCutPaths(doc, originalDielinePath, dielineColorSpot, cutToPathSpotColor, bleedLineSpotColor) {
     var unnamedPaths = [];
     for (var pIndex = 0; pIndex < doc.pathItems.length; pIndex++) {
         var p = doc.pathItems[pIndex];
@@ -151,13 +157,10 @@ function handleDieCutPaths(doc, originalDielinePath, dielineColorSpot, cutToPath
         return b.area - a.area;
     });
 
-    var blackColor = new CMYKColor();
-    blackColor.cyan = 0; blackColor.magenta = 0; blackColor.yellow = 0; blackColor.black = 100;
-
     if (unnamedPaths.length >= 2) {
         var bleedPath = unnamedPaths[0].path;
         bleedPath.name = "Bleed";
-        bleedPath.strokeColor = blackColor;
+        bleedPath.strokeColor = bleedLineSpotColor;
 
         var backerPath = unnamedPaths[1].path;
         backerPath.name = "Backer";
@@ -190,8 +193,9 @@ function handleDieCutPaths(doc, originalDielinePath, dielineColorSpot, cutToPath
  * Organize layers into Guides and Art, set Bleed where appropriate.
  * @param {Document} doc - The document
  * @param {string} labelType - Type of label
+ * @param {SpotColor} bleedLineSpotColor - Spot color for the bleed line
  */
-function organizeLayers(doc, labelType) {
+function organizeLayers(doc, labelType, bleedLineSpotColor) {
     var guidesLayer = doc.layers[0];
     guidesLayer.name = "Guides";
 
@@ -203,208 +207,12 @@ function organizeLayers(doc, labelType) {
         var lastObject = guidesLayer.pageItems[guidesLayer.pageItems.length - 1];
         lastObject.name = "Bleed";
 
-        var blackColor = new CMYKColor();
-        blackColor.cyan = 0; blackColor.magenta = 0; blackColor.yellow = 0; blackColor.black = 100;
-        lastObject.strokeColor = blackColor;
+        lastObject.strokeColor = bleedLineSpotColor;
         lastObject.zOrder(ZOrderMethod.BRINGTOFRONT);
     }
 
     app.redraw();
     $.sleep(100);
-}
-
-/**
- * Adds perpendicular end marks to a dimension line to simulate arrow/tick ends.
- * @param {PathItem} dimensionLine - The dimension line to add ends to.
- * @param {GroupItem} parentGroup - The group in which to add end marks.
- * @param {Color} strokeColor - The stroke color for the end marks.
- */
-function addDimensionLineEnds(dimensionLine, parentGroup, strokeColor) {
-    var pts = dimensionLine.pathPoints;
-    if (pts.length < 2) return;
-
-    var p1 = pts[0].anchor;
-    var p2 = pts[1].anchor;
-
-    var isHorizontal = Math.abs(p1[1] - p2[1]) < 0.0001;
-
-    var endMarkLength = 9; // About 1/8 inch in points
-
-    function createEndMark(x1, y1, x2, y2) {
-        var mark = parentGroup.pathItems.add();
-        mark.setEntirePath([[x1, y1], [x2, y2]]);
-        mark.stroked = true;
-        mark.strokeWidth = 1;
-        mark.strokeColor = strokeColor;
-        mark.filled = false;
-        mark.strokeDashes = [];
-    }
-
-    var x1 = p1[0], y1 = p1[1];
-    var x2 = p2[0], y2 = p2[1];
-
-    if (isHorizontal) {
-        createEndMark(x1, y1 - endMarkLength/2, x1, y1 + endMarkLength/2);
-        createEndMark(x2, y2 - endMarkLength/2, x2, y2 + endMarkLength/2);
-    } else {
-        createEndMark(x1 - endMarkLength/2, y1, x1 + endMarkLength/2, y1);
-        createEndMark(x2 - endMarkLength/2, y2, x2 + endMarkLength/2, y2);
-    }
-}
-
-/**
- * Adds dimension guidelines and text for width and height.
- * @param {Document} doc - The document
- * @param {Object} config - The configuration object
- */
-function addDimensionGuidelines(doc, config) {
-    var labelConfig = LABEL_TYPE_CONFIG[config.labelType] || LABEL_TYPE_CONFIG["Custom"];
-
-    var guidesLayer = doc.layers[0];
-    if (!guidesLayer) return;
-
-    var artboard = doc.artboards[0];
-    var rect = artboard.artboardRect;
-    var left = rect[0], top = rect[1], right = rect[2], bottom = rect[3];
-    var centerX = (left + right) / 2;
-    var centerY = (top + bottom) / 2;
-
-    var widthPts = config.widthInches * INCH_TO_POINTS;
-    var heightPts = config.heightInches * INCH_TO_POINTS;
-
-    // Dimension line color & text color
-    var dimensionColorSpot = createSpotColor(doc, "DimensionLine", [0, 100, 0, 0]);
-    var dimensionTextColor = new CMYKColor();
-    dimensionTextColor.cyan = 0;
-    dimensionTextColor.magenta = 100;
-    dimensionTextColor.yellow = 0;
-    dimensionTextColor.black = 0;
-
-    var fontSize = getDimensionFontSize(Math.min(config.widthInches, config.heightInches));
-
-    // Draw Width Dimension
-    drawWidthDimension(guidesLayer, config, labelConfig, dimensionColorSpot, dimensionTextColor, fontSize,
-                       left, right, top, centerX, widthPts);
-
-    // Draw Height Dimension
-    drawHeightDimension(guidesLayer, config, labelConfig, dimensionColorSpot, dimensionTextColor, fontSize,
-                        left, top, bottom, centerY, heightPts);
-}
-
-/**
- * Draw width dimension line and text
- * @param {Layer} guidesLayer - The guides layer
- * @param {Object} config - The configuration object
- * @param {Object} labelConfig - Label type specific configuration
- * @param {SpotColor} dimensionColorSpot - Color for dimension lines
- * @param {CMYKColor} dimensionTextColor - Color for dimension text
- * @param {number} fontSize - Font size for dimension text
- * @param {number} left - Left position
- * @param {number} right - Right position
- * @param {number} top - Top position
- * @param {number} centerX - Center X position
- * @param {number} widthPts - Width in points
- */
-function drawWidthDimension(guidesLayer, config, labelConfig, dimensionColorSpot, dimensionTextColor, fontSize,
-                            left, right, top, centerX, widthPts) {
-
-    var widthGroup = guidesLayer.groupItems.add();
-    widthGroup.name = "Width";
-
-    var lineY = top + (labelConfig.dimensionLineOffsets.widthLineOffset * INCH_TO_POINTS);
-
-    var widthLine = widthGroup.pathItems.add();
-    widthLine.stroked = true;
-    widthLine.strokeWidth = 1;
-    widthLine.strokeColor = dimensionColorSpot;
-    widthLine.filled = false;
-    widthLine.strokeDashes = [];
-
-    if (config.labelType === "Rolls" || config.labelType === "Die Cut" || config.labelType === "Custom") {
-        widthLine.setEntirePath([
-            [centerX - (widthPts / 2), lineY],
-            [centerX + (widthPts / 2), lineY]
-        ]);
-    } else {
-        widthLine.setEntirePath([[left, lineY], [right, lineY]]);
-    }
-
-    addDimensionLineEnds(widthLine, widthGroup, dimensionColorSpot);
-
-    var widthText = widthGroup.textFrames.add();
-    widthText.contents = config.widthInches + "\"";
-    applyTextAttributes(widthText, dimensionTextColor, fontSize);
-    widthText.paragraphs[0].paragraphAttributes.justification = Justification.CENTER;
-
-    app.redraw();
-    var wtBounds = widthText.visibleBounds;
-    var wtWidth = wtBounds[2] - wtBounds[0];
-
-    var textBottom = lineY + (labelConfig.dimensionLineOffsets.widthTextOffset * INCH_TO_POINTS);
-    var textLeft = centerX - (wtWidth / 2);
-
-    var dxText = textLeft - wtBounds[0];
-    var dyText = textBottom - wtBounds[3];
-
-    widthText.translate(dxText, dyText);
-}
-
-/**
- * Draw height dimension line and text
- * @param {Layer} guidesLayer - The guides layer
- * @param {Object} config - The configuration object
- * @param {Object} labelConfig - Label type specific configuration
- * @param {SpotColor} dimensionColorSpot - Color for dimension lines
- * @param {CMYKColor} dimensionTextColor - Color for dimension text
- * @param {number} fontSize - Font size for dimension text
- * @param {number} left - Left position
- * @param {number} top - Top position
- * @param {number} bottom - Bottom position
- * @param {number} centerY - Center Y position
- * @param {number} heightPts - Height in points
- */
-function drawHeightDimension(guidesLayer, config, labelConfig, dimensionColorSpot, dimensionTextColor, fontSize,
-                             left, top, bottom, centerY, heightPts) {
-
-    var heightGroup = guidesLayer.groupItems.add();
-    heightGroup.name = "Height";
-
-    var heightLineX = left - (labelConfig.dimensionLineOffsets.heightLineOffset * INCH_TO_POINTS);
-
-    var heightLine = heightGroup.pathItems.add();
-    heightLine.stroked = true;
-    heightLine.strokeWidth = 1;
-    heightLine.strokeColor = dimensionColorSpot;
-    heightLine.filled = false;
-    heightLine.strokeDashes = [];
-
-    if (config.labelType === "Rolls" || config.labelType === "Die Cut" || config.labelType === "Custom") {
-        heightLine.setEntirePath([
-            [heightLineX, centerY + (heightPts / 2)],
-            [heightLineX, centerY - (heightPts / 2)]
-        ]);
-    } else {
-        heightLine.setEntirePath([[heightLineX, top], [heightLineX, bottom]]);
-    }
-
-    addDimensionLineEnds(heightLine, heightGroup, dimensionColorSpot);
-
-    var heightText = heightGroup.textFrames.add();
-    heightText.contents = config.heightInches + "\"";
-    applyTextAttributes(heightText, dimensionTextColor, fontSize);
-    heightText.paragraphs[0].paragraphAttributes.justification = Justification.CENTER;
-    heightText.rotate(90);
-
-    app.redraw();
-    var htBounds = heightText.visibleBounds;
-
-    var textCenterY = centerY;
-    var textRight = heightLineX - (labelConfig.dimensionLineOffsets.heightTextOffset * INCH_TO_POINTS);
-
-    var dxT = textRight - htBounds[2];
-    var dyT = textCenterY - ((htBounds[1] + htBounds[3]) / 2);
-
-    heightText.translate(dxT, dyT);
 }
 
 /**
@@ -483,7 +291,54 @@ function addLegend(doc, legendFileName, whiteRect) {
     placed.translate(dx, dy);
 
     // Embed the placed item
-    placed.embed();
+    var guidesLayer = doc.layers.getByName("Guides"); // Ensure we have the layer reference
+    var groupsBefore = [];
+    for (var i = 0; i < guidesLayer.groupItems.length; i++) {
+        groupsBefore.push(guidesLayer.groupItems[i]); // Store references
+    }
+
+    try {
+        placed.embed(); // 'placed' becomes invalid after this
+
+        var groupsAfter = [];
+        for (var i = 0; i < guidesLayer.groupItems.length; i++) {
+            groupsAfter.push(guidesLayer.groupItems[i]);
+        }
+
+        // Find the new group
+        var newGroup = null;
+        var foundCount = 0;
+        for (var j = 0; j < groupsAfter.length; j++) {
+            var isNew = true;
+            for (var k = 0; k < groupsBefore.length; k++) {
+                // Compare references to see if this group existed before
+                if (groupsAfter[j] === groupsBefore[k]) { 
+                    isNew = false;
+                    break;
+                }
+            }
+            if (isNew) {
+                // Check if the new item is actually a GroupItem before assigning
+                if (groupsAfter[j].typename === "GroupItem") { 
+                    newGroup = groupsAfter[j];
+                    foundCount++;
+                }
+            }
+        }
+
+        // Rename if exactly one new group was found
+        if (foundCount === 1 && newGroup) {
+            newGroup.name = "Legends";
+        } else if (foundCount > 1) {
+             // Optional: Log or alert if embedding created multiple groups unexpectedly
+            // alert("Warning: Embedding legend created multiple groups unexpectedly.");
+        }
+        // If foundCount is 0, embed() didn't create a new group, so we do nothing.
+
+    } catch (e) {
+        alert("Error embedding legend file: " + e);
+        // Decide how to handle error
+    }
 
     app.redraw();
 } 
