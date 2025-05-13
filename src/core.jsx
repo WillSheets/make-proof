@@ -46,12 +46,12 @@ function createDocument(widthInches, heightInches, title) {
 /**
  * Adjusts the artboard size based on label type.
  * @param {Artboard} artboard - The artboard to adjust
- * @param {string} labelType - Type of label (Sheets, Rolls, Die Cut)
+ * @param {string} labelType - Type of label (Sheets, Rolls, Die-cut)
  * @param {number} widthPts - Width in points
  * @param {number} heightPts - Height in points
  */
 function adjustArtboardForLabelType(artboard, labelType, widthPts, heightPts) {
-    if (labelType === "Rolls" || labelType === "Die Cut") {
+    if (labelType === "Rolls" || labelType === "Die-cut") {
         var bleed = (labelType === "Rolls") ? 0.0625 : 0.1875;
         var bleedPts = bleed * INCH_TO_POINTS;
         var newArtboardRect = [
@@ -124,7 +124,7 @@ function handleMultiplePaths(doc, labelType, dielineColorSpot, bleedLineSpotColo
         }
     }
 
-    if (labelType === "Die Cut") {
+    if (labelType === "Die-cut") {
         var cutToPathSpotColor = createSpotColor(doc, "SEI-CutToPart", [62.66, 0, 100, 0]);
         handleDieCutPaths(doc, originalDielinePath, dielineColorSpot, cutToPathSpotColor, bleedLineSpotColor);
     }
@@ -138,7 +138,7 @@ function handleMultiplePaths(doc, labelType, dielineColorSpot, bleedLineSpotColo
 }
 
 /**
- * For Die Cut labels: assigns paths as Bleed, Backer, etc.
+ * For Die-cut labels: assigns paths as Bleed, Backer, etc.
  * @param {Document} doc - The document
  * @param {PathItem} originalDielinePath - Original dieline path
  * @param {SpotColor} dielineColorSpot - Dieline color
@@ -231,114 +231,141 @@ function addLegend(doc, legendFileName, whiteRect) {
     var guidesLayer = doc.layers.getByName("Guides");
     var placed = guidesLayer.placedItems.add();
     placed.file = legendFile;
-
     app.redraw();
 
-    // Get geometric bounds of placed item
-    var gb = placed.geometricBounds; // [left, top, right, bottom]
-    var placedWidth = gb[2] - gb[0];
-    var placedHeight = gb[1] - gb[3];
-
-    // White backer bounds
-    var whiteGB = whiteRect.geometricBounds;
-    var whiteBottom = whiteGB[3];
-    var whiteWidth = whiteGB[2] - whiteGB[0];
-
-    // Find the bleed object for vertical positioning
-    var bleedObj = findObjectByName(guidesLayer, "Bleed");
-    if (!bleedObj) {
-        alert("Bleed object not found. Unable to properly position legend.");
-        return;
-    }
-    var bleedGB = bleedObj.geometricBounds;
-    var bleedBottom = bleedGB[3];
-
-    // Vertical distance between bottoms
-    var verticalDistance = whiteBottom - bleedBottom;
-    // Desired legend height = 1/3 of verticalDistance
-    var desiredHeight = verticalDistance / 3;
-
-    // Scale factor to achieve desiredHeight
-    var scaleFactorH = (desiredHeight / placedHeight) * 100;
-
-    // New width constraint: Legend should not exceed 80% of the white backer's width
-    var scaleFactorW = (0.8 * whiteWidth / placedWidth) * 100;
-
-    // Choose the minimum scale factor to satisfy both height and width constraints
-    var finalScaleFactor = Math.min(scaleFactorH, scaleFactorW);
-
-    // Apply the final scale factor
-    placed.resize(finalScaleFactor, finalScaleFactor, false, false, true, true, true, Transformation.CENTER);
-
-    app.redraw();
-
-    // Recalculate geometric bounds after scaling
-    gb = placed.geometricBounds;
-    var newWidth = gb[2] - gb[0];
-    var newHeight = gb[1] - gb[3];
-
-    // Horizontal center alignment:
-    var whiteCenterX = (whiteGB[0] + whiteGB[2]) / 2;
-    var legendCenterX = (gb[0] + gb[2]) / 2;
-    var dx = whiteCenterX - legendCenterX;
-
-    // Vertical: center the legend between the bottom of the white backer and the bottom of the bleed
-    var midpoint = (whiteBottom + bleedBottom) / 2;
-    var legendCenterY = (gb[1] + gb[3]) / 2;
-    var dy = midpoint - legendCenterY;
-
-    // Translate the placed item to its final position
-    placed.translate(dx, dy);
-
-    // Embed the placed item
-    var guidesLayer = doc.layers.getByName("Guides"); // Ensure we have the layer reference
+    // --- Embed the legend item immediately to get a GroupItem ---
+    var legendGroup = null;
     var groupsBefore = [];
     for (var i = 0; i < guidesLayer.groupItems.length; i++) {
-        groupsBefore.push(guidesLayer.groupItems[i]); // Store references
+        groupsBefore.push(guidesLayer.groupItems[i]);
     }
 
     try {
         placed.embed(); // 'placed' becomes invalid after this
+        app.redraw(); // Ensure Illustrator processes the embedding
 
         var groupsAfter = [];
         for (var i = 0; i < guidesLayer.groupItems.length; i++) {
             groupsAfter.push(guidesLayer.groupItems[i]);
         }
 
-        // Find the new group
-        var newGroup = null;
         var foundCount = 0;
         for (var j = 0; j < groupsAfter.length; j++) {
             var isNew = true;
             for (var k = 0; k < groupsBefore.length; k++) {
-                // Compare references to see if this group existed before
-                if (groupsAfter[j] === groupsBefore[k]) { 
+                if (groupsAfter[j] === groupsBefore[k]) {
                     isNew = false;
                     break;
                 }
             }
             if (isNew) {
-                // Check if the new item is actually a GroupItem before assigning
-                if (groupsAfter[j].typename === "GroupItem") { 
-                    newGroup = groupsAfter[j];
+                if (groupsAfter[j].typename === "GroupItem") {
+                    legendGroup = groupsAfter[j];
                     foundCount++;
+                } else {
+                    // If the top-level embedded item isn't a group, try to find a group within it
+                    // This handles cases where embedding might create a clip group or other structures
+                    if (groupsAfter[j].typename === "CompoundPathItem" && groupsAfter[j].pathItems.length > 0 && groupsAfter[j].pathItems[0].typename === "GroupItem") {
+                         legendGroup = groupsAfter[j].pathItems[0]; // Example for a specific structure
+                         foundCount++;
+                    } else if (groupsAfter[j].pageItems && groupsAfter[j].pageItems.length === 1 && groupsAfter[j].pageItems[0].typename === "GroupItem") {
+                        legendGroup = groupsAfter[j].pageItems[0];
+                        foundCount++;
+                    }
                 }
             }
         }
 
-        // Rename if exactly one new group was found
-        if (foundCount === 1 && newGroup) {
-            newGroup.name = "Legends";
-        } else if (foundCount > 1) {
-             // Optional: Log or alert if embedding created multiple groups unexpectedly
-            // alert("Warning: Embedding legend created multiple groups unexpectedly.");
+        if (foundCount !== 1 || !legendGroup) {
+            // Fallback: If exactly one item was added by embedding (even if not a group initially), use it.
+            // This handles cases where embedding a simple AI file might not wrap it in an explicit top-level group.
+            if (guidesLayer.pageItems.length === groupsBefore.length + 1 && placed.typename !== "PlacedItem" /* means it was replaced */ ) {
+                 // The item that replaced 'placed' might be our legend. This is heuristic.
+                 // A more robust way would be to check all items if the group search fails.
+                 // For now, let's assume the prior group search is primary.
+            }
+            if (!legendGroup) { // If still not found
+                 alert("Error: Could not uniquely identify the legend group after embedding. Found " + foundCount + " new groups. Please check the legend file structure.");
+                 // Clean up potentially orphaned new items if possible, or leave for manual check
+                 return;
+            }
         }
-        // If foundCount is 0, embed() didn't create a new group, so we do nothing.
-
     } catch (e) {
         alert("Error embedding legend file: " + e);
-        // Decide how to handle error
+        if (placed && placed.isValid) placed.remove(); // Clean up placed item if embedding failed
+        return;
     }
 
+    legendGroup.name = "Legends";
+
+    // --- Get necessary bounds for scaling constraints ---
+    var whiteGB = whiteRect.geometricBounds;
+    var whiteWidth = whiteGB[2] - whiteGB[0];
+    var whiteBottom = whiteGB[3];
+
+    var bleedObj = findObjectByName(guidesLayer, "Bleed");
+    if (!bleedObj) {
+        alert("Bleed object not found. Unable to properly position legend.");
+        legendGroup.remove(); // Clean up
+        return;
+    }
+    var bleedGB = bleedObj.geometricBounds;
+    var bleedBottom = bleedGB[3];
+
+    // --- Get initial dimensions of the legend group ---
+    var groupInitialWidth = legendGroup.width;
+    var groupInitialHeight = legendGroup.height;
+
+    // --- Calculate scaling constraints ---
+    var actualDistanceForLegendSpace = Math.abs(whiteBottom - bleedBottom);
+    var maxAllowedHeight = -1;
+    if (actualDistanceForLegendSpace > 0) {
+        maxAllowedHeight = actualDistanceForLegendSpace / 3;
+    }
+
+    var targetWidth = -1;
+    if (whiteWidth > 0) {
+        targetWidth = 0.8 * whiteWidth;
+    }
+
+    // --- Calculate scale factors for height and width constraints ---
+    var scaleFactorForHeight = Infinity;
+    if (groupInitialHeight > 0 && maxAllowedHeight > 0) {
+        scaleFactorForHeight = (maxAllowedHeight / groupInitialHeight) * 100;
+    }
+
+    var scaleFactorForWidth = Infinity;
+    if (groupInitialWidth > 0 && targetWidth > 0) {
+        scaleFactorForWidth = (targetWidth / groupInitialWidth) * 100;
+    }
+
+    // --- Choose the smaller (more restrictive) scale factor ---
+    var finalScaleFactor = Math.min(scaleFactorForHeight, scaleFactorForWidth);
+
+    // If no valid scaling constraint was applicable (e.g., zero dimensions/space) or scale factor is non-positive, default to no scaling.
+    if (finalScaleFactor === Infinity || finalScaleFactor <= 0) {
+        finalScaleFactor = 100; // Default to 100% (no change)
+    }
+
+    // --- Apply the final scale factor ---
+    legendGroup.resize(finalScaleFactor, finalScaleFactor, true, true, true, true, true, Transformation.CENTER);
+    app.redraw();
+
+    // --- Position the legendGroup ---
+    var finalBounds = legendGroup.geometricBounds; // Use geometricBounds for positioning
+    var finalWidth = finalBounds[2] - finalBounds[0];
+    var finalHeight = finalBounds[1] - finalBounds[3];
+
+    // Horizontal center alignment:
+    var whiteCenterX = (whiteGB[0] + whiteGB[2]) / 2;
+    var legendCenterX = (finalBounds[0] + finalBounds[2]) / 2;
+    var dx = whiteCenterX - legendCenterX;
+
+    // Vertical: center the legend between the bottom of the white backer and the bottom of the bleed
+    var midpoint = (whiteBottom + bleedBottom) / 2;
+    var legendCenterY = (finalBounds[1] + finalBounds[3]) / 2;
+    var dy = midpoint - legendCenterY;
+
+    legendGroup.translate(dx, dy);
     app.redraw();
 } 

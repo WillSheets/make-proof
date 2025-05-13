@@ -178,7 +178,7 @@ function getLegendFileName(config) {
     var base = "SZ-CL";
 
     // If die cut is chosen, we add "-Backer"
-    if (config.labelType === "Die Cut") {
+    if (config.labelType === "Die-cut") {
         base += "-Backer";
     }
 

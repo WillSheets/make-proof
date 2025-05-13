@@ -46,7 +46,7 @@ var LABEL_TYPE_CONFIG = {
     "Rolls": {
         // Configuration specific to Rolls
     },
-    "Die Cut": {
+    "Die-cut": {
         // Configuration specific to Die Cut
     },
     "Custom": {
@@ -82,7 +82,7 @@ var DIMENSION_OFFSETS_TABLE = {
         "6to10":     { dimLine: 0.375, text: 0.0375, strokeWidth: 1, fontSize: 12, arrowAction: "75%" },
         "over10":    { dimLine: 0.375, text: 0.0375, strokeWidth: 1, fontSize: 12, arrowAction: "75%" }
     },
-    "Die-cut": { // Match the key used in dimensioning.jsx (or standardize)
+    "Die-cut": {
         "under0_5":  { dimLine: 0.3125, text: 0.025, strokeWidth: 0.5, fontSize: 4, arrowAction: "50%" },
         "0_5to1":    { dimLine: 0.325, text: 0.0375, strokeWidth: 0.75, fontSize: 6, arrowAction: "50%" },
         "1to2":      { dimLine: 0.3375, text: 0.0375, strokeWidth: 0.75, fontSize: 8, arrowAction: "50%" },

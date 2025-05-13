@@ -88,7 +88,7 @@ function getUserSelections() {
     var labelGroup = createSection(dlg, "Label Type:");
     var sheetsRadio = labelGroup.add("radiobutton", undefined, "Sheets");
     var rollsRadio = labelGroup.add("radiobutton", undefined, "Rolls");
-    var dieRadio = labelGroup.add("radiobutton", undefined, "Die Cut");
+    var dieRadio = labelGroup.add("radiobutton", undefined, "Die-cut");
     var customRadio = labelGroup.add("radiobutton", undefined, "Custom");
     sheetsRadio.value = true;
     
@@ -111,12 +111,16 @@ function getUserSelections() {
     // Material Type
     dlg.add("panel");
     var materialGroup = createSection(dlg, "Material Type:");
+    materialGroup.spacing = 15; // Decreased spacing to fit all options
+    var whiteRadio = materialGroup.add("radiobutton", undefined, "White");
     var clearRadio = materialGroup.add("radiobutton", undefined, "Clear");
     var metallicRadio = materialGroup.add("radiobutton", undefined, "Metallic");
     var holographicRadio = materialGroup.add("radiobutton", undefined, "Holographic");
+    styleControl(whiteRadio);
     styleControl(clearRadio);
     styleControl(metallicRadio);
     styleControl(holographicRadio);
+    whiteRadio.enabled = false;
     clearRadio.enabled = false;
     metallicRadio.enabled = false;
     holographicRadio.enabled = false;
@@ -186,9 +190,11 @@ function getUserSelections() {
         noWhiteRadio.value = true;
         yesHorizRadio.enabled = false;
         yesVertRadio.enabled = false;
+        whiteRadio.enabled = false;
         clearRadio.enabled = false;
         metallicRadio.enabled = false;
         holographicRadio.enabled = false;
+        whiteRadio.value = false;
         clearRadio.value = false;
         metallicRadio.value = false;
         holographicRadio.value = false;
@@ -198,6 +204,7 @@ function getUserSelections() {
     rollsRadio.onClick = function() {
         yesHorizRadio.enabled = true;
         yesVertRadio.enabled = true;
+        whiteRadio.enabled = true;
         clearRadio.enabled = true;
         metallicRadio.enabled = true;
         holographicRadio.enabled = true;
@@ -207,6 +214,7 @@ function getUserSelections() {
     dieRadio.onClick = function() {
         yesHorizRadio.enabled = true;
         yesVertRadio.enabled = true;
+        whiteRadio.enabled = true;
         clearRadio.enabled = true;
         metallicRadio.enabled = true;
         holographicRadio.enabled = true;
@@ -217,6 +225,7 @@ function getUserSelections() {
     customRadio.onClick = function() {
         yesHorizRadio.enabled = true;
         yesVertRadio.enabled = true;
+        whiteRadio.enabled = true;
         clearRadio.enabled = true;
         metallicRadio.enabled = true;
         holographicRadio.enabled = true;
@@ -248,6 +257,9 @@ function getUserSelections() {
     var lastMaterialSelected = null;
 
     // Add onClick handlers for material radios to implement custom logic
+    whiteRadio.onClick = function() {
+        handleMaterialToggle(whiteRadio);
+    };
     clearRadio.onClick = function() {
         handleMaterialToggle(clearRadio);
     };
@@ -294,11 +306,11 @@ function getUserSelections() {
         // If none is currently selected and we are in a white scenario, select one by default
         var whiteScenario = (yesHorizRadio.value || yesVertRadio.value);
         if (whiteScenario) {
-            var anySelected = clearRadio.value || metallicRadio.value || holographicRadio.value;
+            var anySelected = whiteRadio.value || clearRadio.value || metallicRadio.value || holographicRadio.value;
             if (!anySelected) {
-                // Default to clear
-                clearRadio.value = true;
-                lastMaterialSelected = clearRadio;
+                // Default to white (new default)
+                whiteRadio.value = true;
+                lastMaterialSelected = whiteRadio;
             }
         }
     }
@@ -349,10 +361,11 @@ function getUserSelections() {
     var shapeType = squaredRadio.value ? "Squared" : (roundedRadio.value ? "Rounded" : "Round");
     var labelType = sheetsRadio.value ? "Sheets" :
                     (rollsRadio.value ? "Rolls" :
-                    (dieRadio.value ? "Die Cut" :
+                    (dieRadio.value ? "Die-cut" :
                     (customRadio.value ? "Custom" : null)));
     var addGuidelines = yesGuideRadio.value;
-    var material = clearRadio.value ? "Clear" :
+    var material = whiteRadio.value ? "White" :
+                   clearRadio.value ? "Clear" :
                    metallicRadio.value ? "Metallic" :
                    holographicRadio.value ? "Holographic" : null;
     var whiteInk = yesHorizRadio.value || yesVertRadio.value;

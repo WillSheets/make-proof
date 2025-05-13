@@ -14,7 +14,7 @@ This script automates the creation of proof documents for labels in Adobe Illust
 ### Label Types
 - **Sheets**: Labels printed on sheets, requiring larger bleed (offset +0.125" from dieline) and safe zone (offset -0.125" from dieline), no backer
 - **Rolls**: Labels produced on continuous rolls, with minimal bleed (offset +0.0625" from dieline) and safe zone (offset -0.0625" from dieline), no backer
-- **Die Cut**: Custom-shaped labels with safe zone (offset -0.0625" from dieline), larger bleed (offset +0.1875" from dieline), and backer representation (offset +0.125" from dieline)
+- **Die-cut**: Custom-shaped labels with safe zone (offset -0.0625" from dieline), larger bleed (offset +0.1875" from dieline), and backer representation (offset +0.125" from dieline)
 - **Custom**: User-defined specifications for safe zone, bleed, and backer measurements
 
 ### Label Shape Options

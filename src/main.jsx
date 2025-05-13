@@ -53,7 +53,7 @@ function createRectangleWithDielineStroke() {
     } else {
         // If only one path after offset (e.g., Sheets/Rolls initially), the original shape is still the dieline.
         // Ensure it's still named correctly. handleMultiplePaths would normally handle safezone naming.
-        // We might need to adjust logic here depending on how offsets work for Sheets/Rolls vs Die Cut.
+        // We might need to adjust logic here depending on how offsets work for Sheets/Rolls vs Die-cut.
         // Assuming the offset action *replaces* the selection for Sheets/Rolls, 
         // we might need to re-find the dieline or adjust how 'shape' is handled.
         // For now, let's assume 'shape' still refers to the dieline if selection length is 1.
