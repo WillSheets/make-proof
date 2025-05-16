@@ -4,16 +4,11 @@
  */
 
 // Include all dependencies
-//@include "src/constants.jsx"
-//@include "src/utils.jsx"
-//@include "src/ui.jsx"
-//@include "src/core.jsx"
-//@include "src/dimensioning.jsx"
-//@include "src/main.jsx"
+//@include "src/workflow.jsx"
 
 /**
  * Main execution function that starts the Label Proof script.
- * Delegates to the implementation in src/main.jsx
+ * Delegates to workflow.jsx which in turn includes its own dependencies.
  */
 function run() {
     // Call the main function from main.jsx

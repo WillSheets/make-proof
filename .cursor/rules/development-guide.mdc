@@ -1,13 +1,11 @@
 ---
-description: 
+description: Review this file before making non-trivial changes.
 globs: 
 alwaysApply: false
 ---
 # Label Proofing – Development Guide
 
-> **Audience**: Large-Language-Model (LLM) coding agents & human collaborators.
->
-> **Goal**: Preserve a predictable, low-friction Developer Experience (DX) so that new functionality can be introduced *rapidly* without breaking Illustrator compatibility or established production rules.
+> **Goal**: Preserve a predictable, low-friction codebase and Developer Experience so that new functionality can be introduced easily with ahderence to established production rules.
 
 ---
 
@@ -15,7 +13,7 @@ alwaysApply: false
 1. **Single Source-of-Truth** – All production constants (colors, offsets, font choices, etc.) live in `src/constants.jsx`.  Never hard-code values elsewhere.
 2. **Small, Named Modules** – Each logical concern (UI, geometry, dimensioning, file-IO…) lives in its own `.jsx` file under `src/`.  Keep cross-file coupling minimal and *never* introduce circular `//@include` chains.
 3. **Predictable Naming** – Spot-colors & layers are read by external RIP/press software; *name stability is a contract*.  When adding new colors or layers use `PascalCase` and document them in `constants.jsx`.
-4. **Non-Destructive by Default** – Scripts should leave user artwork untouched unless explicitly told to convert/flatten/expand.
+4. **Non-Destructive by Default** – Scripts should leave user artwork untouched unless explicitly told otherwise.
 
 ---
 
@@ -32,14 +30,13 @@ When adding dependencies, update **this file**.
 
 ## 3. Directory Conventions
 ```
-run.jsx              – Entry point; only responsibility is to `//@include src/main.jsx`
+run.jsx              – Entry point; only responsibility is to `//@include src/workflow.jsx`
 src/
-  ui.jsx             – Dialog creation & validation
-  main.jsx           – High-level workflow (user input → proof document)
-  core.jsx           – Path creation, layer ordering, legend placement
-  dimensioning.jsx   – Dimension lines & text helpers
-  utils.jsx          – Reusable, stateless helpers (color, math, file system)
   constants.jsx      – Immutable values & lookup tables
+  geometry.jsx       – Pure math/format-helpers (no Illustrator dependency)
+  illustrator.jsx    – All Illustrator-DOM adapters (document, paths, layers, legend, dimensioning, etc.)
+  ui.jsx             – Dialog creation & validation
+  workflow.jsx       – High-level workflow (user input → proof document) that orchestrates helpers
 legends/             – Reference AI files displayed on proofs
 ```
 > **Rule**: If a new module can be described in one sentence, it deserves its own file.
@@ -64,7 +61,7 @@ legends/             – Reference AI files displayed on proofs
 
 ### 5.2 Add a New Legend Variant
 1. Place `.ai` file in `legends/` using naming scheme: `SZ-CL-[Qualifier].ai`.
-2. Update `utils.getLegendFileName()` mapping logic if required.
+2. Update `illustrator.getLegendFileName()` mapping logic if required.
 
 ### 5.3 Override Defaults (e.g., Font)
 Change value in `constants.jsx` **only**; never in consuming modules.
@@ -86,24 +83,24 @@ Change value in `constants.jsx` **only**; never in consuming modules.
 ---
 
 ## 8. Common Pitfalls
-| Issue | Mitigation |
-|-------|------------|
-| Legend file not found | Validate existence early; fallback to alert with filename & expected path. |
-| Font missing | Catch `textFonts.getByName` errors; prompt user to install font or auto-fallback. |
-| Offset action fails silently | Retry (`utils.runOffsetAction`) max 3× then abort with guidance. |
-| Layer mis-ordering after offsets | Use explicit `zOrder` calls immediately after creation; never rely on Illustrator defaults. |
+- **Legend file not found** – Validate existence early; fallback to alert with filename & expected path.
+- **Font missing** – Catch `textFonts.getByName` errors; prompt user to install font or auto-fallback.
+- **Offset action fails silently** – Retry (`illustrator.runOffsetAction`) max 3× then abort with guidance.
+- **Layer mis-ordering after offsets** – Use explicit `zOrder` calls immediately after creation; never rely on Illustrator defaults.
 
 ---
 
 ## 9. Glossary (quick-reference)
-| Term | Meaning |
-|------|---------|
-| **Bleed** | Extra artwork beyond dieline; trimmed after cutting |
-| **Safe Zone** | Area within dieline free of critical elements |
-| **Backer** | Waste matrix remaining on die-cut labels |
-| **Legend** | Visual key showing layer stack & spot colors |
+- **Bleed** – Extra artwork beyond dieline; trimmed after cutting.
+- **Safe Zone** – Area within dieline free of critical elements.
+- **Backer** – Waste matrix remaining on die-cut labels.
+- **Legend** – Visual key showing layer stack & spot colors.
 
 ---
 
 
-*Last updated: <2025-05-16-10:38AM>*
+
+
+
+
+*Last updated: <2025-05-16-12:18PM>*
