@@ -35,7 +35,6 @@ src/
   dimensioning.jsx   – Dimension lines & text helpers
   utils.jsx          – Reusable, stateless helpers (color, math, file system)
   constants.jsx      – Immutable values & lookup tables
-  tests/             – ExtendScript test harness (see §8)
 legends/             – Reference AI files displayed on proofs
 ```
 > **Rule**: If a new module can be described in one sentence, it deserves its own file.
@@ -81,14 +80,7 @@ Change value in `constants.jsx` **only**; never in consuming modules.
 
 ---
 
-## 8. Quality Gates (Coming Soon)
-1. **Static Lint** – Configure ESLint with ExtendScript parser for stylistic consistency.
-2. **Unit Tests** – `src/tests/` to be executed via ESTK or Roboflow runner; mock Illustrator DOM where practical.
-3. **CI** – GitHub Actions to lint, run tests, and bundle a distributable `dist/run.jsx`.
-
----
-
-## 9. Common Pitfalls
+## 8. Common Pitfalls
 | Issue | Mitigation |
 |-------|------------|
 | Legend file not found | Validate existence early; fallback to alert with filename & expected path. |
@@ -98,7 +90,7 @@ Change value in `constants.jsx` **only**; never in consuming modules.
 
 ---
 
-## 10. Glossary (quick-reference)
+## 9. Glossary (quick-reference)
 | Term | Meaning |
 |------|---------|
 | **Bleed** | Extra artwork beyond dieline; trimmed after cutting |
