@@ -70,7 +70,12 @@ function createRectangleWithDielineStroke() {
     }
 
     if (config.addGuidelines) {
-        createDimensionLinesForObject(doc, dielineObj, config.labelType, dimensionColorSpot);
+        var whiteRectForDimensions = null; // Initialize before potentially creating whiteRect
+        var bleedObjBoundsForDimensions = null;
+
+        if (bleedObj) { // Ensure bleedObj exists before accessing its bounds
+            bleedObjBoundsForDimensions = bleedObj.geometricBounds;
+        }
 
         // ----- White backer rectangle --------------------------------------------------
         var whiteLayer = doc.layers.add();
@@ -95,6 +100,10 @@ function createRectangleWithDielineStroke() {
         whiteRect.stroked = false;
         whiteRect.filled  = true;
         whiteRect.fillColor = whiteBackerSpotColor;
+        whiteRectForDimensions = whiteRect.geometricBounds; // Assign after creation
+
+        // Call createDimensionLinesForObject *after* whiteRect is created and its bounds are available
+        createDimensionLinesForObject(doc, dielineObj, config.labelType, dimensionColorSpot, bleedObjBoundsForDimensions, whiteRectForDimensions);
 
         // Legend
         var legendFileName = getLegendFileName(config);

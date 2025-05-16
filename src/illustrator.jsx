@@ -277,8 +277,18 @@ function addLegend(doc, legendFileName, whiteRect) {
 
         var found = null;
         for (var k = 0; k < groupsAfter.length; k++) {
-            if (groupsBefore.indexOf(groupsAfter[k]) === -1) {
-                found = groupsAfter[k];
+            var currentGroupAfter = groupsAfter[k];
+            var isPresentInBefore = false;
+            // Manually check if currentGroupAfter is in groupsBefore
+            for (var l = 0; l < groupsBefore.length; l++) {
+                if (groupsBefore[l] === currentGroupAfter) {
+                    isPresentInBefore = true;
+                    break;
+                }
+            }
+
+            if (!isPresentInBefore) {
+                found = currentGroupAfter;
                 break;
             }
         }
@@ -341,7 +351,7 @@ function addLegend(doc, legendFileName, whiteRect) {
 // Dimensioning (ported from dimensioning.jsx)
 // ────────────────────────────────────────────────────────────
 
-function createDimensionLinesForObject(doc, targetObject, labelType, dimensionColorSpot) {
+function createDimensionLinesForObject(doc, targetObject, labelType, dimensionColorSpot, bleedObjectBounds, whiteRectBounds) {
     var FONT_NAME = DIMENSION_FONT_NAME;
     var ACTION_SET_NAME = DIMENSION_ACTION_SET_NAME;
 
@@ -354,7 +364,7 @@ function createDimensionLinesForObject(doc, targetObject, labelType, dimensionCo
         return;
     }
 
-    var gb = targetObject.geometricBounds;
+    var gb = targetObject.geometricBounds; // Dieline bounds
     var left = gb[0], top = gb[1], right = gb[2], bottom = gb[3];
     var widthPt  = right - left;
     var heightPt = top - bottom;
@@ -369,9 +379,7 @@ function createDimensionLinesForObject(doc, targetObject, labelType, dimensionCo
         return;
     }
 
-    // Use global getSizeCategory / getScaleFactor helpers
     var sizeCategory = getSizeCategory(wIn, hIn);
-
     var typeOffsets = DIMENSION_OFFSETS_TABLE[labelType] || DIMENSION_OFFSETS_TABLE["Sheets"];
     var offsets = typeOffsets[sizeCategory] || typeOffsets["1to2"] || DIMENSION_OFFSETS_TABLE["Sheets"]["1to2"];
 
@@ -381,21 +389,18 @@ function createDimensionLinesForObject(doc, targetObject, labelType, dimensionCo
     var fontSize      = offsets.fontSize;
     var arrowActionName = offsets.arrowAction;
 
-    // Inner helper to create a dimension line and run arrow action
     function createDimLine(x1, y1, x2, y2) {
         var line = guidesLayer.pathItems.add();
         line.stroked = true;
         line.strokeWidth = strokeWidth;
         line.strokeColor = dimensionColorSpot;
         line.filled = false;
-
         var p1 = line.pathPoints.add();
         p1.anchor = [x1, y1];
         p1.leftDirection = p1.rightDirection = p1.anchor;
         var p2 = line.pathPoints.add();
         p2.anchor = [x2, y2];
         p2.leftDirection = p2.rightDirection = p2.anchor;
-
         doc.selection = null;
         line.selected = true;
         try {
@@ -409,7 +414,6 @@ function createDimensionLinesForObject(doc, targetObject, labelType, dimensionCo
         return line;
     }
 
-    // Inner helper – create text
     function createDimText(txt, x, y, rotateDeg) {
         var t = guidesLayer.textFrames.add();
         t.contents = txt;
@@ -423,45 +427,63 @@ function createDimensionLinesForObject(doc, targetObject, labelType, dimensionCo
         t.textRange.characterAttributes.size = fontSize;
         t.textRange.fillColor = dimensionColorSpot;
         t.position = [x, y];
-
         var b = t.geometricBounds;
         var textWidth  = b[2] - b[0];
         var textHeight = b[1] - b[3];
-        t.position = [x - textWidth/2, y + textHeight];
-
+        t.position = [x - textWidth/2, y + textHeight]; // Center text horizontally for width dim, adjust anchor for height dim
         if (rotateDeg) {
             t.rotate(rotateDeg, true, true, true, true, Transformation.CENTER);
         }
         return t;
     }
 
-    // HORIZONTAL dimension
-    var lineY = top + inchesToPoints(dimLineOffset);
-    var hLine = createDimLine(left, lineY, right, lineY);
-    var textY = lineY + inchesToPoints(textOffset);
+    // HORIZONTAL dimension (Width Group)
+    // Initial position is centered horizontally on Dieline
+    var lineY_width = top + inchesToPoints(dimLineOffset); 
+    var hLine = createDimLine(left, lineY_width, right, lineY_width);
+    var textY_width = lineY_width + inchesToPoints(textOffset);
     var widthLabel = formatDimension(wIn);
-    var hText = createDimText(widthLabel, (left + right)/2, textY, 0);
+    var hText = createDimText(widthLabel, (left + right)/2, textY_width, 0); // Centered on Dieline X
 
     var widthGroup = guidesLayer.groupItems.add();
     widthGroup.name = "Width";
     if (hLine) hLine.move(widthGroup, ElementPlacement.PLACEATEND);
     if (hText) hText.move(widthGroup, ElementPlacement.PLACEATEND);
 
-    // VERTICAL dimension
-    var lineX = left - inchesToPoints(dimLineOffset);
-    var vLine = createDimLine(lineX, top, lineX, bottom);
+    // Adjust VERTICAL position of Width group
+    if (bleedObjectBounds && whiteRectBounds && widthGroup.pageItems.length > 0) {
+        app.redraw(); 
+        var widthGroupBounds = widthGroup.geometricBounds;
+        var currentWidthGroupCenterY = (widthGroupBounds[1] + widthGroupBounds[3]) / 2;
+        // Target Y is midpoint of Bleed obj top Y and WhiteBackground top Y
+        var targetYCenterForWidthGroup = (bleedObjectBounds[1] + whiteRectBounds[1]) / 2; 
+        var dy = targetYCenterForWidthGroup - currentWidthGroupCenterY;
+        widthGroup.translate(0, dy); // Translate only vertically
+    }
 
-    var midY = (top + bottom)/2;
+    // VERTICAL dimension (Height Group)
+    // Initial position is centered vertically on Dieline
+    var lineX_height = left - inchesToPoints(dimLineOffset); 
+    var vLine = createDimLine(lineX_height, top, lineX_height, bottom);
+    var midY_dieline = (top + bottom)/2; // Center Y of Dieline
     var heightLabel = formatDimension(hIn);
-    var heightText = createDimText(heightLabel, lineX, midY, 90);
+    // For vertical text, createDimText positions based on its own geometric bounds after rotation.
+    // We pass the lineX_height and the Dieline's midY.
+    var heightText = createDimText(heightLabel, lineX_height, midY_dieline, 90);
 
-    if (heightText) {
+    if (heightText) { // Further fine-tune vertical text position relative to the line
         app.redraw();
-        var tb = heightText.geometricBounds;
-        var desiredRight = lineX - inchesToPoints(textOffset);
-        var adjustX = desiredRight - tb[2];
-        var textCenterY = (tb[1] + tb[3]) / 2;
-        var adjustY = midY - textCenterY;
+        var tb = heightText.geometricBounds; // Bounds of the (rotated) text
+        var desiredRightOfText = lineX_height - inchesToPoints(textOffset); // Text should be to the left of the line
+        var currentTextRight = tb[2];
+        var adjustX = desiredRightOfText - currentTextRight;
+
+        // For vertical centering against Dieline's midY:
+        // The text is rotated around its center. Its 'position' is top-left.
+        // After rotation, its geometricBounds define its visual extents.
+        // We want the visual center of the text to align with midY_dieline.
+        var currentTextCenterY = (tb[1] + tb[3]) / 2;
+        var adjustY = midY_dieline - currentTextCenterY;
         heightText.translate(adjustX, adjustY);
     }
 
@@ -469,6 +491,17 @@ function createDimensionLinesForObject(doc, targetObject, labelType, dimensionCo
     heightGroup.name = "Height";
     if (vLine) vLine.move(heightGroup, ElementPlacement.PLACEATEND);
     if (heightText) heightText.move(heightGroup, ElementPlacement.PLACEATEND);
+
+    // Adjust HORIZONTAL position of Height group
+    if (bleedObjectBounds && whiteRectBounds && heightGroup.pageItems.length > 0) {
+        app.redraw(); 
+        var heightGroupBounds = heightGroup.geometricBounds;
+        var currentHeightGroupCenterX = (heightGroupBounds[0] + heightGroupBounds[2]) / 2;
+        // Target X is midpoint of Bleed obj left X and WhiteBackground left X
+        var targetXCenterForHeightGroup = (bleedObjectBounds[0] + whiteRectBounds[0]) / 2; 
+        var dx = targetXCenterForHeightGroup - currentHeightGroupCenterX;
+        heightGroup.translate(dx, 0); // Translate only horizontally
+    }
 
     doc.selection = null;
 } 
