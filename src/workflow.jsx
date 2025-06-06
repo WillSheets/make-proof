@@ -1,17 +1,14 @@
 /*
  * WORKFLOW: High-level orchestration for the Label Proof script.
  * Collects user input, delegates to illustrator helpers, positions legend, etc.
+ * Depends on constants.jsx, geometry.jsx, illustrator.jsx, and ui.jsx.
  */
 
-// Include dependencies – order matters
 //@include "constants.jsx"
 //@include "geometry.jsx"
 //@include "illustrator.jsx"
 //@include "ui.jsx"
 
-// ---------------------------------------------------------------------------
-// Main public entry (was createRectangleWithDielineStroke in main.jsx)
-// ---------------------------------------------------------------------------
 
 function createRectangleWithDielineStroke() {
     var config = getUserSelections();
