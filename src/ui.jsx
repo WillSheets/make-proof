@@ -12,12 +12,30 @@
 function getUserSelections() {
     app.preferences.setIntegerPreference("rulerUnits", 2); // Inches
 
-    var dlg = new Window("dialog", "Proof Settings");
+    var dlg = new Window("dialog", "Make a New Proof");
     dlg.orientation = "column";
-    dlg.alignChildren = ["fill", "top"];
+    dlg.alignChildren = ["center", "top"];
+    // Common width for section blocks so their left edges stay aligned when centered
+    var sectionWidth = 300; // matches separator line width
     dlg.spacing = 10;
     dlg.margins = 15;
     dlg.graphics.backgroundColor = dlg.graphics.newBrush(dlg.graphics.BrushType.SOLID_COLOR, [0.2, 0.2, 0.2, 1]);
+
+    // make the overall window a bit wider than the 300-px content block
+    dlg.preferredSize.width = 360;  // pick any value larger than 300
+
+    // --- Status text (error) ---------------------------------------------------
+    var statusGroup = dlg.add("group");
+    statusGroup.alignment = "center";
+    var statusText = statusGroup.add("statictext", undefined, "Proof Settings");
+    statusText.characters = 28;
+    statusText.alignment = ["center", "center"];
+    statusText.justify = "center";
+    // White text colour
+    statusText.graphics.foregroundColor = statusText.graphics.newPen(
+        statusText.graphics.PenType.SOLID_COLOR, [1, 1, 1], 1
+    );
+    statusText.preferredSize.width = 300; // constrain width so it doesn't stretch the dialog
 
     function createHeader(parent, text) {
         var header = parent.add("statictext", undefined, text);
@@ -29,12 +47,33 @@ function getUserSelections() {
         control.graphics.foregroundColor = control.graphics.newPen(control.graphics.PenType.SOLID_COLOR, [1, 1, 1, 1], 1);
     }
     function createSection(parent, headerText) {
-        createHeader(parent, headerText);
-        var optionsGroup = parent.add("group");
+        // Container that will be centered inside the dialog while its children remain left-aligned
+        var section = parent.add("group");
+        section.orientation = "column";
+        section.alignChildren = ["left", "top"]; // keep internal elements flushed left
+        section.alignment = "center";            // but center the whole section in the window
+        section.preferredSize.width = sectionWidth; // ensure consistent width across sections
+
+        // Header
+        var header = createHeader(section, headerText);
+        // Allow header to fill the width so its text starts at the same left edge
+        header.alignment = ["left", "top"];
+
+        // Horizontal group for the section's selectable controls
+        var optionsGroup = section.add("group");
         optionsGroup.orientation = "row";
-        optionsGroup.alignChildren = "center";
+        optionsGroup.alignChildren = ["left", "center"];
+        optionsGroup.preferredSize.width = sectionWidth; // keep options width consistent as well
         optionsGroup.spacing = 20;
         return optionsGroup;
+    }
+
+    // Helper to add a centered, fixed-width separator line
+    function addSeparator(parent) {
+        var sep = parent.add("panel");
+        sep.alignment = "center";
+        sep.preferredSize.width = 300; // shorten line length
+        return sep;
     }
 
     // Add function to create spin buttons like in NewDie.jsx
@@ -49,8 +88,8 @@ function getUserSelections() {
         firstSpinGroup.spacing = 0;
         firstSpinGroup.alignChildren = "center";
         
-        var upBtn1 = firstSpinGroup.add("statictext", undefined, "▲");
-        var downBtn1 = firstSpinGroup.add("statictext", undefined, "▼");
+        var upBtn1 = firstSpinGroup.add("statictext", undefined, "\u25B2"); // ▲
+        var downBtn1 = firstSpinGroup.add("statictext", undefined, "\u25BC"); // ▼
         
         upBtn1.addEventListener('mousedown', function() { adjustValue(increment1); });
         downBtn1.addEventListener('mousedown', function() { adjustValue(-increment1); });
@@ -60,8 +99,8 @@ function getUserSelections() {
         secondSpinGroup.spacing = 0;
         secondSpinGroup.alignChildren = "center";
         
-        var upBtn2 = secondSpinGroup.add("statictext", undefined, "▲");
-        var downBtn2 = secondSpinGroup.add("statictext", undefined, "▼");
+        var upBtn2 = secondSpinGroup.add("statictext", undefined, "\u25B2");
+        var downBtn2 = secondSpinGroup.add("statictext", undefined, "\u25BC");
         
         upBtn2.addEventListener('mousedown', function() { adjustValue(increment2); });
         downBtn2.addEventListener('mousedown', function() { adjustValue(-increment2); });
@@ -98,7 +137,7 @@ function getUserSelections() {
     styleControl(customRadio);
 
     // Shape Type
-    dlg.add("panel");
+    addSeparator(dlg);
     var shapeGroup = createSection(dlg, "Shape Type:");
     var squaredRadio = shapeGroup.add("radiobutton", undefined, "Squared");
     var roundedRadio = shapeGroup.add("radiobutton", undefined, "Rounded");
@@ -109,7 +148,7 @@ function getUserSelections() {
     styleControl(roundRadio);
 
     // Material Type
-    dlg.add("panel");
+    addSeparator(dlg);
     var materialGroup = createSection(dlg, "Material Type:");
     materialGroup.spacing = 15; // Decreased spacing to fit all options
     var whiteRadio = materialGroup.add("radiobutton", undefined, "White");
@@ -126,7 +165,7 @@ function getUserSelections() {
     holographicRadio.enabled = false;
 
     // Guidelines
-    dlg.add("panel");
+    addSeparator(dlg);
     var guideGroup = createSection(dlg, "Add Guidelines?");
     var noGuideRadio = guideGroup.add("radiobutton", undefined, "No");
     var yesGuideRadio = guideGroup.add("radiobutton", undefined, "Yes");
@@ -135,7 +174,7 @@ function getUserSelections() {
     styleControl(yesGuideRadio);
 
     // White Ink
-    dlg.add("panel");
+    addSeparator(dlg);
     var whiteGroup = createSection(dlg, "White Ink?");
     var noWhiteRadio = whiteGroup.add("radiobutton", undefined, "No");
     var yesHorizRadio = whiteGroup.add("radiobutton", undefined, "Yes (wide layout)");
@@ -146,7 +185,7 @@ function getUserSelections() {
     styleControl(yesVertRadio);
 
     // Replace the Size Input section
-    dlg.add("panel");
+    addSeparator(dlg);
     var sizeGroup = createSection(dlg, "Size:");
     
     // Create container for width and height inputs
@@ -331,21 +370,37 @@ function getUserSelections() {
     // Initialize the UI state since Sheets is selected by default
     sheetsRadio.onClick();
 
-    // Add spacer before buttons - using invisible group instead of visible panel
-    var spacer = dlg.add("group");
-    spacer.preferredSize.height = 20; // Add extra space above OK/Cancel buttons
-
     // OK/Cancel
     var buttonGroup = dlg.add("group");
     buttonGroup.orientation = "row";
     buttonGroup.alignment = "center"; // Center the button group
     buttonGroup.alignChildren = "center"; // Center the buttons within the group
-    buttonGroup.margins = [0, 15, 0, 0]; // Add top margin to the button group
+    buttonGroup.margins = [0, 15, 0, 0]; // Small top margin
     var okButton = buttonGroup.add("button", undefined, "OK");
     var cancelButton = buttonGroup.add("button", undefined, "Cancel");
 
     var dialogResult = false;
     okButton.onClick = function() {
+        // Reset status text to placeholder before validation
+        statusText.text = "Proof Settings";
+
+        // Validate width and height inputs
+        var widthVal  = parseFloat(widthInput.text);
+        var heightVal = parseFloat(heightInput.text);
+        var widthMissing  = isNaN(widthVal)  || widthVal  <= 0;
+        var heightMissing = isNaN(heightVal) || heightVal <= 0;
+
+        if (widthMissing && heightMissing) {
+            statusText.text = "Missing the label size.";
+            return; // Do not close dialog
+        } else if (widthMissing) {
+            statusText.text = "Missing the label width.";
+            return;
+        } else if (heightMissing) {
+            statusText.text = "Missing the label height.";
+            return;
+        }
+
         dialogResult = true;
         dlg.close();
     };
