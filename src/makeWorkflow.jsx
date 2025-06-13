@@ -1,26 +1,42 @@
 /*
- * WORKFLOW: High-level orchestration for the Label Proof script.
- * Collects user input, delegates to illustrator helpers, positions legend, etc.
- * Depends on constants.jsx, geometry.jsx, illustrator.jsx, and ui.jsx.
+ * makeWorkflow.jsx - Core logic for Make mode
+ * Creates a new proof template from scratch based on user specifications
  */
 
 //@include "constants.jsx"
 //@include "geometry.jsx"
 //@include "illustrator.jsx"
-//@include "ui.jsx"
+//@include "makeUI.jsx"
 
+/**
+ * Main workflow function for Make mode
+ * Creates a new proof template based on user specifications
+ * @param {Object} config - Configuration object from UI
+ */
+function runMakeWorkflow(config) {
+    // If no config provided, something went wrong
+    if (!config) {
+        alert("No configuration provided to Make workflow");
+        return;
+    }
+    
+    // Handle orientation swap if requested
+    var widthInches = config.widthInches;
+    var heightInches = config.heightInches;
+    if (config.swapOrientation) {
+        var temp = widthInches;
+        widthInches = heightInches;
+        heightInches = temp;
+    }
+    
+    var widthPts  = widthInches  * INCH_TO_POINTS;
+    var heightPts = heightInches * INCH_TO_POINTS;
 
-function createRectangleWithDielineStroke() {
-    var config = getUserSelections();
-    if (!config) return; // user cancelled
-
-    var widthPts  = config.widthInches  * INCH_TO_POINTS;
-    var heightPts = config.heightInches * INCH_TO_POINTS;
-
-    var doc = createDocument(config.widthInches, config.heightInches, "LabelProof");
+    // Create new document
+    var doc = createDocument(widthInches, heightInches, "LabelProof");
     fitViewToArt(doc);
 
-    // Spot colours used throughout
+    // Create spot colors used throughout
     var dielineColorSpot     = createSpotColor(doc, "Dieline", [0, 100, 0, 0]);
     var dimensionColorSpot   = createSpotColor(doc, "DimensionLine", DIMENSION_COLOR_CMYK);
     var bleedLineSpotColor   = createSpotColor(doc, BLEEDLINE_COLOR_NAME, BLEEDLINE_COLOR_CMYK);
@@ -33,7 +49,7 @@ function createRectangleWithDielineStroke() {
 
     // Run offset action recorded in Illustrator
     if (!runOffsetAction(config.labelType)) {
-        alert("Error running offset action. Please try again.");
+        alert("Error running offset action. Please ensure the \"Offset\" action set is available with actions for: " + config.labelType);
         return;
     }
 
@@ -50,7 +66,7 @@ function createRectangleWithDielineStroke() {
     fitViewToArt(doc);
 
     // --------------------------------------------------------------------
-    // Dimensioning & legend / backer
+    // Dimensioning & legend / white backer
     // --------------------------------------------------------------------
 
     var guidesLayer = doc.layers.getByName("Guides");
@@ -79,8 +95,8 @@ function createRectangleWithDielineStroke() {
         whiteLayer.name = "White Background";
         whiteLayer.zOrder(ZOrderMethod.SENDTOBACK);
 
-        var widthScale  = getScaleFactor(config.widthInches);
-        var heightScale = getScaleFactor(config.heightInches);
+        var widthScale  = getScaleFactor(widthInches);
+        var heightScale = getScaleFactor(heightInches);
         var dielineBounds = dielineObj.geometricBounds;
         var baseWidthPts  = dielineBounds[2] - dielineBounds[0];
         var baseHeightPts = dielineBounds[1] - dielineBounds[3];
@@ -108,4 +124,17 @@ function createRectangleWithDielineStroke() {
 
         whiteLayer.locked = true;
     }
+
+    // Final fit to view
+    fitViewToArt(doc);
+}
+
+// ============================================================================
+// PUBLIC API
+// ============================================================================
+
+if (!$.global.MakeWorkflow) {
+    $.global.MakeWorkflow = {
+        run: runMakeWorkflow
+    };
 } 
